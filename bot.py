@@ -7,7 +7,7 @@ from tokens import DISCORD_TOKEN
 REDIRECT_URI = 'http://localhost:5000/callback'
 
 #call commands by typing command prefix before the command
-COMMAND_PREFIX = "boot "
+COMMAND_PREFIX = "b!"
 
 GAMES_FILE_PATH = "games.txt"
 
