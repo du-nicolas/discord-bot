@@ -7,11 +7,11 @@ from tokens import DISCORD_TOKEN
 REDIRECT_URI = 'http://localhost:5000/callback'
 
 #call commands by typing command prefix before the command
-COMMAND_PREFIX = "b!"
+COMMAND_PREFIX = "your-command-prefix-here"
 
 GAMES_FILE_PATH = "games.txt"
 
-NOTIFICATION_CHANNEL_ID = 1239303343319552111
+NOTIFICATION_CHANNEL_ID = "your-channel-id-here"
 
 def run_discord_bot():
     bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=discord.Intents.all())
