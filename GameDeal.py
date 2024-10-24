@@ -1,5 +1,6 @@
 import requests
 from creds import API_KEY
+import CDKScraper as cdks
 
 API_URL = "https://api.isthereanydeal.com"
 LOOKUP_ENDPOINT = "/games/lookup/v1"
@@ -10,14 +11,11 @@ class GameDeal:
     __title = None
     __id = None
     __bestDeals = None
+    __type = None
 
     def __init__(self, title: str = None, id: str = None, deals = None):
         if id == None and deals == None:
-            self.__title, self.__id, self.__bestDeals = GameDeal.search_game_title(title)
-        else:
-            self.__title = title
-            self.__id = id
-            self.__bestDeals = deals
+            self.__title, self.__id, self.__bestDeals, self.__type = GameDeal.search_game_title(title)
 
     @staticmethod
     def search_game_title(searchTerm: str):
@@ -31,18 +29,19 @@ class GameDeal:
 
         if response.status_code == 200:
             for data in response.json():
-                deals = GameDeal.find_deals(data['title'], data['id'])
+                type = data['type']
+                deals = GameDeal.find_deals(data['title'], data['id'], type)
                 if deals:
-                    return data['title'], data['id'], deals
+                    return data['title'], data['id'], deals, type
             
             print(f"No game with deals found")
-            return None, None, None
+            return None, None, None, None
         else:
             print(f"Failed to retrieve game data for title: status code {response.status_code}")
-            return None, None, None
+            return None, None, None, None
 
     @staticmethod
-    def find_deals(title: str, id: str):
+    def find_deals(title: str, id: str, type: str):
         """
         return best deals from cheapest to most expensive
         as a sorted array of dictionaries with keys 'store', 'price', 'voucher'
@@ -73,13 +72,23 @@ class GameDeal:
                           'voucher': deal['voucher'],
                           'url': deal['url']} for deal in deals]
         
+        CDKeysDeal = cdks.CDKScraper(title, type)
+        CDKShopName = "CDKeys"
+        if CDKeysDeal.get_gameFound():
+            if not CDKeysDeal.get_inStock():
+                CDKShopName = CDKShopName + " (Out of Stock)"
+            bestDeals.append({'store': "CDKeys",
+                              "price": CDKeysDeal.get_price(),
+                              "voucher": None, 
+                              "url": CDKeysDeal.get_URL()})
+
         # top cheapest deals from least to greatest price
         bestDeals.sort(key = lambda deal: deal['price'])
                     
         return bestDeals[:numDeals]
     
     def refresh_deals(self):
-        self.__bestDeals = GameDeal.find_deals(title = self.__title, id = self.__id)
+        self.__bestDeals = GameDeal.find_deals(title = self.__title, id = self.__id, type = self.__type)
 
     @staticmethod
     def lookup_game(title):
@@ -109,7 +118,7 @@ class GameDeal:
         return self.__title
 
     def print_info(self):
-        print(f"Title: {self.__title}, id: {self.__id}, deals: {self.__bestDeals}")
+        print(f"Title: {self.__title}, id: {self.__id}, deals: {self.__bestDeals}, Type: {self.__type}")
 
     def isValid(self):
         return self.__id and self.__title
