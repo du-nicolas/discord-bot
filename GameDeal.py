@@ -11,14 +11,18 @@ class GameDeal:
     __title = None
     __id = None
     __bestDeals = None
+    __CDKeysDeal = None
     __type = None
+
+
 
     def __init__(self, title: str = None, id: str = None, deals = None):
         if id == None and deals == None:
-            self.__title, self.__id, self.__bestDeals, self.__type = GameDeal.search_game_title(title)
+            self.search_game_title(title)
 
-    @staticmethod
-    def search_game_title(searchTerm: str):
+
+
+    def search_game_title(self, searchTerm: str):
         """
         return tuple of title, id, deals
         """
@@ -29,19 +33,20 @@ class GameDeal:
 
         if response.status_code == 200:
             for data in response.json():
-                type = data['type']
-                deals = GameDeal.find_deals(data['title'], data['id'], type)
-                if deals:
-                    return data['title'], data['id'], deals, type
-            
+                self.find_deals(data['title'], data['id'], data['type'])
+                if self.__bestDeals:
+                    self.__title = data['title']
+                    self.__id = data['id'] 
+                    self.__type = data['type']
+                    return
             print(f"No game with deals found")
-            return None, None, None, None
+
         else:
             print(f"Failed to retrieve game data for title: status code {response.status_code}")
-            return None, None, None, None
 
-    @staticmethod
-    def find_deals(title: str, id: str, type: str):
+
+
+    def find_deals(self, title: str, id: str, type: str):
         """
         return best deals from cheapest to most expensive
         as a sorted array of dictionaries with keys 'store', 'price', 'voucher'
@@ -65,48 +70,41 @@ class GameDeal:
             print(f"Failed to get prices: status code {response.status_code}")
             return None
         
-        
         deals = data['deals']
         bestDeals = [{'store': deal['shop']['name'],
                           'price': deal['price']['amount'], 
                           'voucher': deal['voucher'],
                           'url': deal['url']} for deal in deals]
         
-        CDKeysDeal = cdks.CDKScraper(title, type)
-        CDKShopName = "CDKeys"
-        if CDKeysDeal.get_gameFound():
-            if not CDKeysDeal.get_inStock():
-                CDKShopName = CDKShopName + " (Out of Stock)"
-            bestDeals.append({'store': "CDKeys",
-                              "price": CDKeysDeal.get_price(),
-                              "voucher": None, 
-                              "url": CDKeysDeal.get_URL()})
+        if self.__CDKeysDeal:
+            self.__CDKeysDeal.refresh()
+            bestDeals.append(self.__CDKeysDeal.get_details())
+        else:
+            CDKeysDeal = self.find_CDKeys_Deal(title, type)
+            if CDKeysDeal:
+                self.__CDKeysDeal = CDKeysDeal
+                bestDeals.append(CDKeysDeal.get_details())
 
         # top cheapest deals from least to greatest price
         bestDeals.sort(key = lambda deal: deal['price'])
                     
-        return bestDeals[:numDeals]
+        self.__bestDeals = bestDeals[:numDeals]
     
-    def refresh_deals(self):
-        self.__bestDeals = GameDeal.find_deals(title = self.__title, id = self.__id, type = self.__type)
 
-    @staticmethod
-    def lookup_game(title):
-        # return tuple of title, id, deals from title parameter
-        url = "".join((API_URL, LOOKUP_ENDPOINT))
-        params = {'key': API_KEY,
-                  'title': title}
-        response = requests.get(url, params = params)
-        if response.status_code == 200:
-            if response.json()['found']:
-                data = response.json()['game']
-                deals = GameDeal.find_deals(data['title'], id = data['id'])
-                return data['title'], data['id'], deals
-            else:
-                print(f'Game with title {title} not found')
-        else:
-            print(f'Failed to retrieve game data for {title}: status code {response.status_code}')
+
+    def refresh_deals(self):
+        self.find_deals(self.__title, self.__id, self.__type)
+
+
+
+    def find_CDKeys_Deal(self, title, type):
+        CDKeysDeal = cdks.CDKScraper(title, type)
+        
+        if CDKeysDeal.get_gameFound():
+            return CDKeysDeal
         return None
+
+
 
     def get_best_deals(self):
         return self.__bestDeals
